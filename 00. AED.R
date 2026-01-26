@@ -6,121 +6,114 @@ setwd("C:/Marcos- Memoria/01. Tecnico/extremesnorthchile/data")
 library(openxlsx)
 library(dplyr)
 library(lubridate)
-library(zoo)   # para rollsum()
+library(zoo)  
+library(tidyr)# para rollsum()
 # -------------------------------
-# 1. Leer datos
+# 1. Leer datos de VISHMA21
 # -------------------------------
-data <- read.xlsx("Sol_AM006T_0028840_PrecipitacionH.xlsx", sheet = 1)
+
+nombre_archivo <- "RegistrosDiarios_pr_2026-01-05.xlsx"
+dt <- read.xlsx(nombre_archivo, sheet = 2)
+dt_estaciones <- read.xlsx(nombre_archivo, sheet = 1)
 
 # -------------------------------
 # 2. Filtrar estación
 # -------------------------------
-data_pastos <- data %>%
-  filter(ESTACIÓN == "PASTOS GRANDES")
+id_estacion <- dt_estaciones %>%
+  filter(name == "PASTOS GRANDES") %>%
+  pull(id)
+
+#data estación continua
+data_estacion <- dt %>%
+  filter(id %in% id_estacion) %>%
+  mutate(
+    # Fecha desde Excel
+    date = as.Date(date, origin = "1899-12-30"),
+    
+    # Fecha desplazada 3 meses (año hidrológico)
+    date_hidrologico = date %m-% months(3)
+  ) %>%
+  # Renombrar precipitación
+  rename(RR = value) %>%
+  
+  # Ordenar por fecha (buena práctica)
+  arrange(date) %>%
+  
+  # Crear serie diaria continua y rellenar faltantes con NA
+  complete(
+    date = seq(min(date), max(date), by = "day"),
+    fill = list(RR = NA_real_)
+  ) %>%
+  
+  # Volver a calcular fecha hidrológica (importante después de complete)
+  mutate(
+    date_hidrologico = date %m-% months(3)
+  )
+
 
 # -------------------------------
-# 3. Crear fecha-hora CORRECTA
+# 5. RxDdía mensual
+# RxDdía_j = max(RR_ij)
 # -------------------------------
-data_pastos <- data_pastos %>%
-  mutate(
-    datetime = dmy_hm(
-      paste(Fecha, Hora),
-      tz = "America/Santiago"
+
+RxDdia_anual <- function(data_estacion, D) {
+  
+  data_estacion %>%
+    arrange(date) %>%   # MUY importante para rollsum
+    mutate(
+      year = year(date_hidrologico),
+      RR_Ddias = zoo::rollsum(RR, k = D, align = "center", fill = NA)
+    ) %>%
+    group_by(year) %>%
+    summarise(
+      RxDdia = if (all(is.na(RR_Ddias))) NA_real_
+      else max(RR_Ddias, na.rm = TRUE),
+      .groups = "drop"
     )
-  )
+}
 
-# -------------------------------
-# 4. Precipitación diaria (RR_ij)
-# -------------------------------
-precip_diaria <- data_pastos %>%
-  mutate(fecha = as.Date(datetime)) %>%
-  group_by(fecha) %>%
-  summarise(
-    RR = sum(Valor, na.rm = TRUE),
-    .groups = "drop"
-  )
-
-# -------------------------------
-# 5. Rx1día mensual
-# Rx1día_j = max(RR_ij)
-# -------------------------------
-Rx1dia_mensual <- precip_diaria %>%
-  mutate(
-    year  = year(fecha),
-    month = month(fecha)
-  ) %>%
-  group_by(year, month) %>%
-  summarise(
-    Rx1dia = max(RR, na.rm = TRUE),
-    .groups = "drop"
-  )
-
-Rx1dia_mensual
-
-
-# -------------------------------
-# 6. Rx5día mensual
-# Rx5día_j = max(RR_ij)
-# -------------------------------
-precip_5dias <- precip_diaria %>%
-  arrange(fecha) %>%
-  mutate(
-    RR_5dias = rollsum(RR, k = 5, align = "right", fill = NA)
-  )
-
-
-Rx5dia_mensual <- precip_5dias %>%
-  mutate(
-    year  = year(fecha),
-    month = month(fecha)
-  ) %>%
-  group_by(year, month) %>%
-  summarise(
-    Rx5dia = max(RR_5dias, na.rm = TRUE),
-    .groups = "drop"
-  )
-
-Rx5dia_mensual
+Rx1dia_anual <- RxDdia_anual(data_estacion, 1)
+Rx5dia_anual <- RxDdia_anual(data_estacion, 5)
+  
 # -------------------------------
 # 7. SDII Índice de intensidad mensual
 # SDII_i = sum(RR_wj)/W
 # -------------------------------
-precip_diaria <- precip_diaria %>%
-  mutate(lluvioso = RR > 0)      # DefinimosRR ≥ 0 mm
 
-SDII_mensual <- precip_diaria %>%
+SDII_anual <- data_estacion %>%
   mutate(
-    year  = year(fecha),
-    month = month(fecha)
+    year  = year(date_hidrologico), lluvioso=RR>0 # DefinimosRR ≥ 0 mm
   ) %>%
-  group_by(year, month) %>%
+  group_by(year) %>%
+  filter(any(lluvioso)) %>% 
   summarise(
-    SDII = sum(RR[lluvioso], na.rm = TRUE) / sum(lluvioso),
+    SDII = sum(RR[lluvioso], na.rm = T) / sum(lluvioso),
     .groups = "drop"
   )
 
-SDII_mensual
+SDII_anual
 
 # -------------------------------
 # 8. Rnnmm Conteo anual de dias cunado PRCP > nnmm, nn es un umbral definido
 # RRij >20mm
 # -------------------------------
-Rnnmm <- function(precip_diaria, nn) {
+Rnnmm <- function(data_estacion, nn) {
   
-  precip_diaria %>%
-    mutate(year = year(fecha)) %>%
-    group_by(year) %>%
+  data_estacion %>%
+    mutate(year = year(date_hidrologico), lluvioso=RR>0) %>%
+    group_by(year) %>% #debe ser por año hidrologico
+    filter(any(lluvioso)) %>% 
     summarise(
       Rnnmm = sum(RR >= nn, na.rm = TRUE),
       .groups = "drop"
     )
 } 
 #Recuento anual de dias con PRCP >= 10 mm
-Rn10mm <- Rnnmm(precip_diaria,10)
+Rn10mm <- Rnnmm(data_estacion,10)
 Rn10mm
 
 #Recuento anual de dias con PRCP >= 20 mm
-R20mm <- Rnnmm(precip_diaria,20)
+R20mm <- Rnnmm(data_estacion,20)
 R20mm
 
 # -------------------------------
@@ -128,20 +121,25 @@ R20mm
 #   CWD Dureción máxima del período seco, número máximo de días consecutivos con RR >=0
 # RRij <1mm o >1mm
 # -------------------------------
-CD <- function(precip_diaria, tipo = c("seco", "humedo")) {
+CD <- function(data_estacion, tipo = c("seco", "humedo")) {
+  
+  # Chequeo de seguridad
+  stopifnot(is.data.frame(data_estacion))
   
   tipo <- match.arg(tipo)
   
-  precip_diaria %>%
-    mutate(
-      year = year(fecha),
-      condicion = ifelse(
-        tipo == "seco", RR < 1, RR >= 1
+  data_estacion %>%
+    dplyr::arrange(date_hidrologico) %>%
+    dplyr::mutate(
+      year = lubridate::year(date_hidrologico),
+      condicion = dplyr::case_when(
+        tipo == "seco"   & !is.na(RR) & RR == 0 ~ TRUE,
+        tipo == "humedo" & !is.na(RR) & RR >  0 ~ TRUE,
+        TRUE ~ FALSE   # incluye NA y rompe rachas
       )
     ) %>%
-    arrange(fecha) %>%
-    group_by(year) %>%
-    summarise(
+    dplyr::group_by(year) %>%
+    dplyr::summarise(
       CD = {
         r <- rle(condicion)
         if (any(r$values)) max(r$lengths[r$values]) else 0
@@ -149,43 +147,45 @@ CD <- function(precip_diaria, tipo = c("seco", "humedo")) {
       .groups = "drop"
     )
 }
-
-CDD <- CD(precip_diaria, "seco")
-CDD
-CWD <- CD(precip_diaria, "humedo")
-CWD
+CDD <- CD(data_estacion, "seco")
+CWD <- CD(data_estacion, "humedo")
 
 # -------------------------------
 # 10.per_PTOT, PRCP tortal anual cuando RR>PER_p
 # -------------------------------
-ref_periodo <- precip_diaria %>%
+ref_periodo <- data_estacion %>%
   filter(
-    year(fecha) >= 1980,
-    year(fecha) <= 2025,
-    RR >= 0                     #Definmimos que la precipitacion sea mayor a 0 por ser zona de bajas precipitaciones
+    year(date_hidrologico) >= 1980,
+    year(date_hidrologico) <= 2025,
+    RR > 0
   )
 
 p95 <- quantile(ref_periodo$RR, 0.95, na.rm = TRUE)
+
 p99 <- quantile(ref_periodo$RR, 0.99, na.rm = TRUE)
 
-R_per_PTOT <- function(precip_diaria, umbral) {
+R_per_PTOT <- function(data_estacion, umbral) {
   
-  precip_diaria %>%
-    filter(RR > 0) %>%              # días lluviosos
-    mutate(year = year(fecha)) %>%
+  data_estacion %>%
+    mutate(
+      year = year(date_hidrologico),
+      wet = RR > 0,
+      dry = RR == 0
+    ) %>%
     group_by(year) %>%
     summarise(
-      R_per_PTOT = sum(RR[RR > umbral], na.rm = TRUE),
+      n_wet = sum(wet, na.rm = TRUE),                 # días húmedos
+      n_dry = sum(dry, na.rm = TRUE),                 # días secos
+      R_per_PTOT = sum(RR[RR > umbral], na.rm = TRUE),# precip sobre percentil
       .groups = "drop"
     )
 }
 
-R95pTOT <- R_per_PTOT(precip_diaria, p95)
+R95pTOT <- R_per_PTOT(data_estacion, p95)
 R95pTOT
 
-R99pTOT <- R_per_PTOT(precip_diaria, p99)
+R99pTOT <- R_per_PTOT(data_estacion, p99)
 R99pTOT
-
 
 # -------------------------------
 # 11.PRCPTOT precipitación total anual en días húmedos
@@ -193,21 +193,54 @@ R99pTOT
 # -------------------------------
 
 
-PRCPTOT <- function(precip_diaria) {
+PRCPTOT <- function(data_estacion) {
   
-  precip_diaria %>%
+  data_estacion %>%
     filter(RR > 0) %>%              # solo días húmedos en zona norte
-    mutate(year = year(fecha)) %>%
+    mutate(year = year(date_hidrologico)) %>%
     group_by(year) %>%
     summarise(
       PRCPTOT = sum(RR, na.rm = TRUE),
       .groups = "drop"
     )
 }
-PRCPTOT_anual <- PRCPTOT(precip_diaria)
+PRCPTOT_anual <- PRCPTOT(data_estacion)
 PRCPTOT_anual
 
 # -------------------------------
-#RESUMEN: pendienteee
+#RESUMEN: 
 # -------------------------------
+Rx1dia_anual <- Rx1dia_anual %>% rename(Rx1day = RxDdia)
+Rx5dia_anual <- Rx5dia_anual %>% rename(Rx5day = RxDdia)
 
+Rn10mm <- Rn10mm %>% rename(R10mm = Rnnmm)
+R20mm  <- R20mm  %>% rename(R20mm = Rnnmm)
+
+CDD <- CDD %>% rename(CDD = CD)
+CWD <- CWD %>% rename(CWD = CD)
+
+R95pTOT <- R95pTOT %>% rename(
+  R95pTOT = R_per_PTOT,
+  n_wet_95 = n_wet,
+  n_dry_95 = n_dry
+)
+
+R99pTOT <- R99pTOT %>% rename(
+  R99pTOT = R_per_PTOT,
+  n_wet_99 = n_wet,
+  n_dry_99 = n_dry
+)
+
+metricas_data <- Rx1dia_anual %>%
+  full_join(Rx5dia_anual,  by = "year") %>%
+  full_join(SDII_anual,    by = "year") %>%
+  full_join(Rn10mm,        by = "year") %>%
+  full_join(R20mm,         by = "year") %>%
+  full_join(CDD,           by = "year") %>%
+  full_join(CWD,           by = "year") %>%
+  full_join(PRCPTOT_anual, by = "year") %>%
+  full_join(R95pTOT,       by = "year") %>%
+  full_join(R99pTOT,       by = "year") %>%
+  arrange(year)
+
+metricas_data
