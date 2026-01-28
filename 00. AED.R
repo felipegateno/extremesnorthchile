@@ -1,10 +1,4 @@
-
-# Directorio
-setwd("C:/Marcos- Memoria/01. Tecnico/extremesnorthchile/data")
-nombre_archivo = "RegistrosDiarios_pr_2026-01-05.xlsx"
-nombre_estacion = "PASTOS GRANDES"
-get_data_estacion <- function(nombre_archivo, nombre_estacion) {
-  
+suppressPackageStartupMessages({
   library(openxlsx)
   library(dplyr)
   library(lubridate)
@@ -12,6 +6,15 @@ get_data_estacion <- function(nombre_archivo, nombre_estacion) {
   library(zoo)
   library(ggplot2)
   library(patchwork)
+})
+
+
+# Directorio
+nombre_archivo = "data/RegistrosDiarios_pr_2026-01-05.xlsx"
+nombre_estacion = "PASTOS GRANDES"
+get_data_estacion <- function(nombre_archivo, nombre_estacion) {
+  
+  
   
   # Leer datos
   dt <- read.xlsx(nombre_archivo, sheet = 2)
@@ -41,7 +44,8 @@ get_data_estacion <- function(nombre_archivo, nombre_estacion) {
     mutate(
       date_hidrologico = date %m-% months(3),
       year = year(date_hidrologico)
-    )
+    ) %>% 
+    select(-variable)
   
   return(data_estacion)
 }
@@ -219,7 +223,7 @@ theme_metrica <- theme_minimal(base_size = 12) +
 
 plot_metrica_ts <- function(data, var, subtitulo, ylab) {
   ggplot(
-    data %>% filter(!is.na(.data[[var]])),
+    data,
     aes(x = year, y = .data[[var]])
   ) +
     geom_line(linewidth = 0.9) +
@@ -261,7 +265,6 @@ p_R99 <- plot_metrica_ts(
   "R99pTOT (mm)"
 )
 
-library(patchwork)
 
 (p_PRCPTOT / p_SDII / p_R95) +
   plot_annotation(

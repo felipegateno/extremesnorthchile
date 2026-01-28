@@ -1,0 +1,106 @@
+---
+title: "`r htmltools::HTML('<center><h1>Análisis de frecuencia<center></h1>')`"
+author: "`r htmltools::HTML('<center><h4>Felipe Gateño M. - felipegateno96@gmail.com<center></h4>')`"
+lang: "esp"
+output:
+  html_document:
+    toc: true
+    theme: united
+---
+<style>
+body {
+text-align: justify}
+</style>
+```{css, echo=FALSE}
+.rchunks_in {
+  background-color: white;
+  border: 0.5px solid black;
+  font-weight: bold;
+}
+```
+```{css, echo=FALSE}
+.rchunks_out {
+  background-color: white;
+  border: 0.5px dashed black;
+  font-weight: bold;
+}
+```
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE,
+                      comment = "",
+                      message = F,
+                      warning = F,
+                      fig.align = "center",
+                      class.source = "rchunks_in",
+                      class.output = "rchunks_out",
+                      fig.width = 12,
+                      fig.height = 7)
+```
+
+```{r, echo = F}
+suppressPackageStartupMessages({
+  library(openxlsx)
+  library(dplyr)
+  library(lubridate)
+  library(tidyr)
+  library(zoo)
+  library(ggplot2)
+  library(patchwork)
+  library(knitr)
+})
+```
+
+```{r, echo = F}
+nombre_archivo = "data/RegistrosDiarios_pr_2026-01-05.xlsx"
+nombre_estacion = "PASTOS GRANDES"
+
+
+
+get_data_estacion <- function(nombre_archivo, nombre_estacion) {
+  
+  
+  
+  # Leer datos
+  dt <- read.xlsx(nombre_archivo, sheet = 2)
+  dt_estaciones <- read.xlsx(nombre_archivo, sheet = 1)
+  
+  # Obtener ID estación
+  id_estacion <- dt_estaciones %>%
+    filter(name == nombre_estacion) %>%
+    pull(id)
+  
+  if (length(id_estacion) == 0) {
+    stop("La estación no existe en el archivo.")
+  }
+  
+  # Construir serie diaria continua
+  data_estacion <- dt %>%
+    filter(id %in% id_estacion) %>%
+    mutate(
+      date = as.Date(date, origin = "1899-12-30")
+    ) %>%
+    rename(RR = value) %>%
+    arrange(date) %>%
+    complete(
+      date = seq(min(date), max(date), by = "day"),
+      fill = list(RR = NA_real_)
+    ) %>%
+    mutate(
+      date_hidrologico = date %m-% months(3),
+      year = year(date_hidrologico)
+    ) %>% 
+    select(-variable)
+  
+  return(data_estacion)
+}
+```
+
+# 1. Descripción de la estación
+
+
+
+
+```{r, echo = F}
+print(1)
+```
+
