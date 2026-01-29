@@ -17,7 +17,8 @@ get_data_estacion <- function(nombre_archivo, nombre_estacion) {
   
   
   # Leer datos
-  dt <- read.xlsx(nombre_archivo, sheet = 2)
+  dt <- read.xlsx(nombre_archivo, sheet = 2,
+                  detectDates = TRUE)
   dt_estaciones <- read.xlsx(nombre_archivo, sheet = 1)
   
   # Obtener ID estación
@@ -53,7 +54,7 @@ get_data_estacion <- function(nombre_archivo, nombre_estacion) {
 calcular_metricas_anuales <- function(data_estacion,
                                       year_min = 1966,
                                       year_max = 2025) {
-
+  
   # ---------------------------
   # Tabla base de años
   # ---------------------------

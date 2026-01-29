@@ -1,0 +1,276 @@
+% Options for packages loaded elsewhere
+\PassOptionsToPackage{unicode}{hyperref}
+\PassOptionsToPackage{hyphens}{url}
+%
+\documentclass[
+]{article}
+\usepackage{amsmath,amssymb}
+\usepackage{iftex}
+\ifPDFTeX
+  \usepackage[T1]{fontenc}
+  \usepackage[utf8]{inputenc}
+  \usepackage{textcomp} % provide euro and other symbols
+\else % if luatex or xetex
+  \usepackage{unicode-math} % this also loads fontspec
+  \defaultfontfeatures{Scale=MatchLowercase}
+  \defaultfontfeatures[\rmfamily]{Ligatures=TeX,Scale=1}
+\fi
+\usepackage{lmodern}
+\ifPDFTeX\else
+  % xetex/luatex font selection
+\fi
+% Use upquote if available, for straight quotes in verbatim environments
+\IfFileExists{upquote.sty}{\usepackage{upquote}}{}
+\IfFileExists{microtype.sty}{% use microtype if available
+  \usepackage[]{microtype}
+  \UseMicrotypeSet[protrusion]{basicmath} % disable protrusion for tt fonts
+}{}
+\makeatletter
+\@ifundefined{KOMAClassName}{% if non-KOMA class
+  \IfFileExists{parskip.sty}{%
+    \usepackage{parskip}
+  }{% else
+    \setlength{\parindent}{0pt}
+    \setlength{\parskip}{6pt plus 2pt minus 1pt}}
+}{% if KOMA class
+  \KOMAoptions{parskip=half}}
+\makeatother
+\usepackage{xcolor}
+\usepackage[margin=1in]{geometry}
+\usepackage{graphicx}
+\makeatletter
+\newsavebox\pandoc@box
+\newcommand*\pandocbounded[1]{% scales image to fit in text height/width
+  \sbox\pandoc@box{#1}%
+  \Gscale@div\@tempa{\textheight}{\dimexpr\ht\pandoc@box+\dp\pandoc@box\relax}%
+  \Gscale@div\@tempb{\linewidth}{\wd\pandoc@box}%
+  \ifdim\@tempb\p@<\@tempa\p@\let\@tempa\@tempb\fi% select the smaller of both
+  \ifdim\@tempa\p@<\p@\scalebox{\@tempa}{\usebox\pandoc@box}%
+  \else\usebox{\pandoc@box}%
+  \fi%
+}
+% Set default figure placement to htbp
+\def\fps@figure{htbp}
+\makeatother
+\setlength{\emergencystretch}{3em} % prevent overfull lines
+\providecommand{\tightlist}{%
+  \setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}}
+\setcounter{secnumdepth}{-\maxdimen} % remove section numbering
+\ifLuaTeX
+\usepackage[bidi=basic]{babel}
+\else
+\usepackage[bidi=default]{babel}
+\fi
+% get rid of language-specific shorthands (see #6817):
+\let\LanguageShortHands\languageshorthands
+\def\languageshorthands#1{}
+\usepackage{bookmark}
+\IfFileExists{xurl.sty}{\usepackage{xurl}}{} % add URL line breaks if available
+\urlstyle{same}
+\hypersetup{
+  pdflang={esp},
+  hidelinks,
+  pdfcreator={LaTeX via pandoc}}
+
+\author{}
+\date{\vspace{-2.5em}}
+
+\begin{document}
+
+{
+\setcounter{tocdepth}{2}
+\tableofcontents
+}
+\section{1. Descripción de la
+estación}\label{descripciuxf3n-de-la-estaciuxf3n}
+
+La estación pluviométrica COPIAPO, administrada por DGA, se localiza en
+la Región DE ATACAMA, a una latitud de -27.36° y longitud -70.34°, con
+una elevación aproximada de 385 m s.n.m.. La estación registra la
+variable precipitación diaria (mm/día) y cuenta con una serie de datos
+que se extiende desde el 1971-01-01 hasta el 2025-05-31 , totalizando
+19875 días en el período de análisis. De estos, 18643 días presentan
+registros válidos, lo que corresponde a una cobertura del 93.8\%, sin
+detección de valores atípicos.
+
+\section{2. Descripción metodológica de las métricas de
+precipitación}\label{descripciuxf3n-metodoluxf3gica-de-las-muxe9tricas-de-precipitaciuxf3n}
+
+La caracterización de la variabilidad, intensidad y extremos de la
+precipitación se realizó a partir de la serie diaria de precipitación,
+calculando métricas anuales por año hidrológico (abril--marzo). Las
+métricas empleadas corresponden a índices ampliamente utilizados en
+climatología e hidrología, en particular aquellos propuestos por el
+Expert Team on Climate Change Detection and Indices (ETCCDI).
+
+\subsubsection{Precipitación total anual en días húmedos
+(PRCPTOT)}\label{precipitaciuxf3n-total-anual-en-duxedas-huxfamedos-prcptot}
+
+La métrica \textbf{PRCPTOT} corresponde a la suma anual de la
+precipitación diaria registrada en días húmedos, definidos como aquellos
+con precipitación estrictamente mayor a 0 mm. Este indicador permite
+cuantificar la cantidad total de agua precipitada en un año hidrológico,
+excluyendo los días secos.
+
+Matemáticamente, se define como:
+
+\[
+PRCPTOT_j = \sum_{i=1}^{N_j} RR_{ij}, \quad \text{con } RR_{ij} > 0
+\]
+
+donde \(RR_{ij}\) es la precipitación diaria del día \(i\) en el año
+hidrológico \(j\), y \(N_j\) corresponde al número total de días del
+año.
+
+\begin{center}\rule{0.5\linewidth}{0.5pt}\end{center}
+
+\subsubsection{Índice de intensidad diaria simple
+(SDII)}\label{uxedndice-de-intensidad-diaria-simple-sdii}
+
+El \textbf{SDII (Simple Daily Intensity Index)} representa la intensidad
+media de la precipitación durante los días húmedos de un año
+hidrológico. Se calcula como el cociente entre la precipitación total
+anual en días húmedos y el número de días húmedos del año.
+
+Se modifico para los años con registro de precipitación 0, para estos se
+les asigna un \(SDII = 0\) \[
+SDII_j = \frac{\sum RR_{ij}}{N_{wet,j}}, \quad \text{con } RR_{ij} > 0
+\]
+
+donde \(N_{wet,j}\) es el número de días húmedos del año hidrológico
+\(j\). Valores elevados de SDII indican una mayor concentración de la
+precipitación en eventos intensos.
+
+\begin{center}\rule{0.5\linewidth}{0.5pt}\end{center}
+
+\subsubsection{Precipitación máxima en 1 día
+(Rx1day)}\label{precipitaciuxf3n-muxe1xima-en-1-duxeda-rx1day}
+
+La métrica \textbf{Rx1day} corresponde al mayor monto de precipitación
+diaria registrado dentro de un año hidrológico y es un indicador directo
+de eventos extremos de corta duración.
+
+\[
+Rx1day_j = \max(RR_{ij})
+\]
+
+\begin{center}\rule{0.5\linewidth}{0.5pt}\end{center}
+
+\subsubsection{Precipitación máxima en 5 días consecutivos
+(Rx5day)}\label{precipitaciuxf3n-muxe1xima-en-5-duxedas-consecutivos-rx5day}
+
+La métrica \textbf{Rx5day} representa el máximo acumulado de
+precipitación en cualquier período móvil de cinco días consecutivos
+dentro de un año hidrológico. Para su cálculo se utiliza una suma móvil
+de cinco días.
+
+\[
+Rx5day_j = \max \left( \sum_{k=i}^{i+4} RR_{kj} \right)
+\]
+
+Este índice es relevante para evaluar eventos persistentes asociados a
+crecidas y saturación del suelo.
+
+\begin{center}\rule{0.5\linewidth}{0.5pt}\end{center}
+
+\subsubsection{Número de días con precipitación mayor o igual a 10 mm
+(R10mm)}\label{nuxfamero-de-duxedas-con-precipitaciuxf3n-mayor-o-igual-a-10-mm-r10mm}
+
+El índice \textbf{R10mm} corresponde al número de días en un año
+hidrológico en los que la precipitación diaria es igual o superior a 10
+mm, y permite evaluar la frecuencia de eventos de precipitación moderada
+a intensa.
+
+\[
+R10mm_j = \sum_{i=1}^{N_j} I(RR_{ij} \ge 10)
+\]
+
+donde \(I(\cdot)\) es una función indicadora que toma valor 1 cuando la
+condición se cumple y 0 en caso contrario.
+
+\begin{center}\rule{0.5\linewidth}{0.5pt}\end{center}
+
+\subsubsection{Número de días con precipitación mayor o igual a 20 mm
+(R20mm)}\label{nuxfamero-de-duxedas-con-precipitaciuxf3n-mayor-o-igual-a-20-mm-r20mm}
+
+El índice \textbf{R20mm} contabiliza el número de días por año
+hidrológico con precipitación diaria igual o superior a 20 mm, asociado
+a eventos intensos.
+
+\[
+R20mm_j = \sum_{i=1}^{N_j} I(RR_{ij} \ge 20)
+\]
+
+\begin{center}\rule{0.5\linewidth}{0.5pt}\end{center}
+
+\subsubsection{Máxima racha de días secos consecutivos
+(CDD)}\label{muxe1xima-racha-de-duxedas-secos-consecutivos-cdd}
+
+La métrica \textbf{CDD (Consecutive Dry Days)} corresponde al mayor
+número de días secos consecutivos dentro de un año hidrológico,
+considerando como día seco aquel con precipitación igual a 0 mm.
+
+\[
+CDD_j = \max(L_{dry})
+\]
+
+donde \(L_{dry}\) representa la longitud de cada racha consecutiva de
+días con \(RR_{ij} = 0\).
+
+\begin{center}\rule{0.5\linewidth}{0.5pt}\end{center}
+
+\subsubsection{Máxima racha de días húmedos consecutivos
+(CWD)}\label{muxe1xima-racha-de-duxedas-huxfamedos-consecutivos-cwd}
+
+La métrica \textbf{CWD (Consecutive Wet Days)} corresponde al mayor
+número de días húmedos consecutivos dentro de un año hidrológico,
+definiendo como día húmedo aquel con precipitación mayor a 0 mm.
+
+\[
+CWD_j = \max(L_{wet})
+\]
+
+donde \(L_{wet}\) representa la longitud de cada racha consecutiva de
+días con \(RR_{ij} > 0\).
+
+\begin{center}\rule{0.5\linewidth}{0.5pt}\end{center}
+
+\subsubsection{Precipitación anual sobre el percentil 95
+(R95pTOT)}\label{precipitaciuxf3n-anual-sobre-el-percentil-95-r95ptot}
+
+La métrica \textbf{R95pTOT} corresponde a la suma anual de la
+precipitación diaria asociada a eventos extremos moderados, definidos
+como aquellos días cuya precipitación supera el percentil 95
+(\(P_{95}\)) de la distribución de precipitación diaria positiva del
+período de referencia.
+
+\[
+R95pTOT_j = \sum RR_{ij}, \quad \text{con } RR_{ij} > P_{95}
+\]
+
+\begin{center}\rule{0.5\linewidth}{0.5pt}\end{center}
+
+\subsubsection{Precipitación anual sobre el percentil 99
+(R99pTOT)}\label{precipitaciuxf3n-anual-sobre-el-percentil-99-r99ptot}
+
+La métrica \textbf{R99pTOT} representa la suma anual de la precipitación
+diaria correspondiente a eventos extremos severos, definidos como
+aquellos días con precipitación superior al percentil 99 (\(P_{99}\)) de
+la distribución de precipitación diaria positiva del período de
+referencia.
+
+\[
+R99pTOT_j = \sum RR_{ij}, \quad \text{con } RR_{ij} > P_{99}
+\]
+
+\section{3.Resultados}\label{resultados}
+
+\begin{center}\includegraphics{Reporte_files/figure-latex/unnamed-chunk-5-1} \end{center}
+
+\begin{center}\includegraphics{Reporte_files/figure-latex/unnamed-chunk-5-2} \end{center}
+
+\begin{center}\includegraphics{Reporte_files/figure-latex/unnamed-chunk-5-3} \end{center}
+
+\begin{center}\includegraphics{Reporte_files/figure-latex/unnamed-chunk-5-4} \end{center}
+
+\end{document}

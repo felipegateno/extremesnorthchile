@@ -1,11 +1,11 @@
 ---
-title: "`r htmltools::HTML('<center><h1>Análisis de frecuencia<center></h1>')`"
-author: "`r htmltools::HTML('<center><h4>Felipe Gateño M. - felipegateno96@gmail.com<center></h4>')`"
+title: "`r htmltools::HTML('<center><h1>Reporte de precipitación<center></h1>')`"
+author: "`r htmltools::HTML('<center><h4>Amphos21 Chile<center></h4>')`"
 lang: "esp"
 output:
-  html_document:
+  pdf_document:
     toc: true
-    theme: united
+    # theme: united
 ---
 <style>
 body {
@@ -37,7 +37,7 @@ knitr::opts_chunk$set(echo = TRUE,
                       fig.height = 7)
 ```
 
-```{r, echo = F}
+```{r, include=FALSE}
 suppressPackageStartupMessages({
   library(openxlsx)
   library(dplyr)
@@ -50,15 +50,163 @@ suppressPackageStartupMessages({
 })
 ```
 
+```{r, include=FALSE}
+nombre_archivo <- "data/RegistrosDiarios_pr_2026-01-05.xlsx"
+nombre_estacion <- "COPIAPO"
+
+get_info_estacion <- function(nombre_archivo, nombre_estacion) {
+  
+  dt_estaciones <- read.xlsx(
+    nombre_archivo,
+    sheet = 1,
+    detectDates = TRUE
+  )
+  
+  info_estacion <- dt_estaciones %>%
+    filter(name == nombre_estacion)
+  
+  if (nrow(info_estacion) == 0) {
+    stop("La estación no existe en el archivo.")
+  }
+  
+  return(info_estacion)
+}
+
+# Ejecutar
+info_estacion <- get_info_estacion(nombre_archivo, nombre_estacion)
+
+
+```
+
+
+
+# 1. Descripción de la estación
+
+La estación pluviométrica `r nombre_estacion`, administrada por `r info_estacion$owner`, se localiza en la Región `r info_estacion$nombre_region`, a una latitud de `r round(info_estacion$lat,2)`° y longitud `r  round(info_estacion$lon,2)`°, con una elevación aproximada de `r info_estacion$elev` m s.n.m.. La estación registra la variable precipitación diaria (mm/día) y cuenta con una serie de datos que se extiende desde el `r info_estacion$first_record`  hasta el `r info_estacion$last_record` , totalizando `r as.character(info_estacion$total_days)` días en el período de análisis. De estos,  `r as.character(info_estacion$records_days)` días presentan registros válidos, lo que corresponde a una cobertura del  `r round(info_estacion$records_pctg,2)`%, sin detección de valores atípicos.
+
+
+# 2. Descripción metodológica de las métricas de precipitación
+
+La caracterización de la variabilidad, intensidad y extremos de la precipitación se realizó a partir de la serie diaria de precipitación, calculando métricas anuales por año hidrológico (abril–marzo). Las métricas empleadas corresponden a índices ampliamente utilizados en climatología e hidrología, en particular aquellos propuestos por el Expert Team on Climate Change Detection and Indices (ETCCDI).
+
+### Precipitación total anual en días húmedos (PRCPTOT)
+
+La métrica **PRCPTOT** corresponde a la suma anual de la precipitación diaria registrada en días húmedos, definidos como aquellos con precipitación estrictamente mayor a 0 mm. Este indicador permite cuantificar la cantidad total de agua precipitada en un año hidrológico, excluyendo los días secos.
+
+Matemáticamente, se define como:
+
+$$
+PRCPTOT_j = \sum_{i=1}^{N_j} RR_{ij}, \quad \text{con } RR_{ij} > 0
+$$
+
+donde $RR_{ij}$ es la precipitación diaria del día $i$ en el año hidrológico $j$, y $N_j$ corresponde al número total de días del año.
+
+---
+
+### Índice de intensidad diaria simple (SDII)
+
+El **SDII (Simple Daily Intensity Index)** representa la intensidad media de la precipitación durante los días húmedos de un año hidrológico. Se calcula como el cociente entre la precipitación total anual en días húmedos y el número de días húmedos del año.
+
+Se modifico para los años con registro de precipitación 0, para estos se les asigna un $SDII = 0$
+$$
+SDII_j = \frac{\sum RR_{ij}}{N_{wet,j}}, \quad \text{con } RR_{ij} > 0
+$$
+
+donde $N_{wet,j}$ es el número de días húmedos del año hidrológico $j$. Valores elevados de SDII indican una mayor concentración de la precipitación en eventos intensos.
+
+---
+
+### Precipitación máxima en 1 día (Rx1day)
+
+La métrica **Rx1day** corresponde al mayor monto de precipitación diaria registrado dentro de un año hidrológico y es un indicador directo de eventos extremos de corta duración.
+
+$$
+Rx1day_j = \max(RR_{ij})
+$$
+
+---
+
+### Precipitación máxima en 5 días consecutivos (Rx5day)
+
+La métrica **Rx5day** representa el máximo acumulado de precipitación en cualquier período móvil de cinco días consecutivos dentro de un año hidrológico. Para su cálculo se utiliza una suma móvil de cinco días.
+
+$$
+Rx5day_j = \max \left( \sum_{k=i}^{i+4} RR_{kj} \right)
+$$
+
+Este índice es relevante para evaluar eventos persistentes asociados a crecidas y saturación del suelo.
+
+---
+
+### Número de días con precipitación mayor o igual a 10 mm (R10mm)
+
+El índice **R10mm** corresponde al número de días en un año hidrológico en los que la precipitación diaria es igual o superior a 10 mm, y permite evaluar la frecuencia de eventos de precipitación moderada a intensa.
+
+$$
+R10mm_j = \sum_{i=1}^{N_j} I(RR_{ij} \ge 10)
+$$
+
+donde $I(\cdot)$ es una función indicadora que toma valor 1 cuando la condición se cumple y 0 en caso contrario.
+
+---
+
+### Número de días con precipitación mayor o igual a 20 mm (R20mm)
+
+El índice **R20mm** contabiliza el número de días por año hidrológico con precipitación diaria igual o superior a 20 mm, asociado a eventos intensos.
+
+$$
+R20mm_j = \sum_{i=1}^{N_j} I(RR_{ij} \ge 20)
+$$
+
+---
+
+### Máxima racha de días secos consecutivos (CDD)
+
+La métrica **CDD (Consecutive Dry Days)** corresponde al mayor número de días secos consecutivos dentro de un año hidrológico, considerando como día seco aquel con precipitación igual a 0 mm.
+
+$$
+CDD_j = \max(L_{dry})
+$$
+
+donde $L_{dry}$ representa la longitud de cada racha consecutiva de días con $RR_{ij} = 0$.
+
+---
+
+### Máxima racha de días húmedos consecutivos (CWD)
+
+La métrica **CWD (Consecutive Wet Days)** corresponde al mayor número de días húmedos consecutivos dentro de un año hidrológico, definiendo como día húmedo aquel con precipitación mayor a 0 mm.
+
+$$
+CWD_j = \max(L_{wet})
+$$
+
+donde $L_{wet}$ representa la longitud de cada racha consecutiva de días con $RR_{ij} > 0$.
+
+---
+
+### Precipitación anual sobre el percentil 95 (R95pTOT)
+
+La métrica **R95pTOT** corresponde a la suma anual de la precipitación diaria asociada a eventos extremos moderados, definidos como aquellos días cuya precipitación supera el percentil 95 ($P_{95}$) de la distribución de precipitación diaria positiva del período de referencia.
+
+$$
+R95pTOT_j = \sum RR_{ij}, \quad \text{con } RR_{ij} > P_{95}
+$$
+
+---
+
+### Precipitación anual sobre el percentil 99 (R99pTOT)
+
+La métrica **R99pTOT** representa la suma anual de la precipitación diaria correspondiente a eventos extremos severos, definidos como aquellos días con precipitación superior al percentil 99 ($P_{99}$) de la distribución de precipitación diaria positiva del período de referencia.
+
+$$
+R99pTOT_j = \sum RR_{ij}, \quad \text{con } RR_{ij} > P_{99}
+$$
+
+
+# 3.Resultados
 ```{r, echo = F}
-nombre_archivo = "data/RegistrosDiarios_pr_2026-01-05.xlsx"
-nombre_estacion = "PASTOS GRANDES"
-
-
-
+# Directorio
 get_data_estacion <- function(nombre_archivo, nombre_estacion) {
-  
-  
   
   # Leer datos
   dt <- read.xlsx(nombre_archivo, sheet = 2)
@@ -93,14 +241,325 @@ get_data_estacion <- function(nombre_archivo, nombre_estacion) {
   
   return(data_estacion)
 }
-```
 
-# 1. Descripción de la estación
+calcular_metricas_anuales <- function(data_estacion,
+                                      year_min = 1966,
+                                      year_max = 2025) {
+
+  # ---------------------------
+  # Tabla base de años
+  # ---------------------------
+  years_tbl <- tibble(year = year_min:year_max)
+  
+  # ---------------------------
+  # Conteo y calidad de datos
+  # ---------------------------
+  n_wet_dry <- data_estacion %>%
+    mutate(
+      year_start = as.Date(paste0(year - 1, "-04-01")),
+      year_end   = as.Date(paste0(year, "-03-31")),
+      n_days_year = as.integer(year_end - year_start + 1)
+    ) %>%
+    group_by(year) %>%
+    summarise(
+      n_days   = first(n_days_year),
+      n_valid  = sum(!is.na(RR)),
+      pct_valid = 100 * n_valid / n_days,
+      n_wet = if (all(is.na(RR))) NA_integer_ else sum(RR > 0, na.rm = TRUE),
+      n_dry = if (all(is.na(RR))) NA_integer_ else sum(RR == 0, na.rm = TRUE),
+      .groups = "drop"
+    )
+  
+  # ---------------------------
+  # RxDdia
+  # ---------------------------
+  RxDdia <- function(D) {
+    data_estacion %>%
+      arrange(date) %>%
+      mutate(RR_D = zoo::rollsum(RR, k = D, fill = NA, align = "center")) %>%
+      group_by(year) %>%
+      summarise(
+        !!paste0("Rx", D, "day") :=
+          if (all(is.na(RR))) NA_real_
+        else max(RR_D, na.rm = TRUE),
+        .groups = "drop"
+      )
+  }
+  
+  Rx1day <- RxDdia(1)
+  Rx5day <- RxDdia(5)
+  
+  # ---------------------------
+  # SDII
+  # ---------------------------
+  SDII <- data_estacion %>%
+    group_by(year) %>%
+    summarise(
+      SDII = if (all(is.na(RR))) NA_real_
+      else if (sum(RR > 0, na.rm = TRUE) == 0) 0
+      else sum(RR[RR > 0], na.rm = TRUE) / sum(RR > 0, na.rm = TRUE),
+      .groups = "drop"
+    )
+  
+  # ---------------------------
+  # Rnnmm
+  # ---------------------------
+  Rnnmm <- function(nn, name) {
+    data_estacion %>%
+      group_by(year) %>%
+      summarise(
+        !!name := if (all(is.na(RR))) NA_integer_
+        else sum(RR >= nn, na.rm = TRUE),
+        .groups = "drop"
+      )
+  }
+  
+  R10mm <- Rnnmm(10, "R10mm")
+  R20mm <- Rnnmm(20, "R20mm")
+  
+  # ---------------------------
+  # CDD / CWD
+  # ---------------------------
+  CD <- function(tipo) {
+    data_estacion %>%
+      arrange(date_hidrologico) %>%
+      mutate(
+        condicion = case_when(
+          tipo == "seco"   & RR == 0 ~ TRUE,
+          tipo == "humedo" & RR >  0 ~ TRUE,
+          TRUE ~ FALSE
+        )
+      ) %>%
+      group_by(year) %>%
+      summarise(
+        !!tipo := {
+          if (all(is.na(RR))) NA_integer_
+          else {
+            r <- rle(condicion)
+            if (any(r$values)) max(r$lengths[r$values]) else 0
+          }
+        },
+        .groups = "drop"
+      )
+  }
+  
+  CDD <- CD("CDD")
+  CWD <- CD("CWD")
+  
+  # ---------------------------
+  # PRCPTOT
+  # ---------------------------
+  PRCPTOT <- data_estacion %>%
+    group_by(year) %>%
+    summarise(
+      PRCPTOT = if (all(is.na(RR))) NA_real_
+      else sum(RR[RR > 0], na.rm = TRUE),
+      .groups = "drop"
+    )
+  
+  # ---------------------------
+  # Percentiles
+  # ---------------------------
+  ref <- data_estacion %>%
+    filter(year >= year_min, year <= year_max, RR > 0)
+  
+  p95 <- quantile(ref$RR, 0.95, na.rm = TRUE, type = 6)
+  p99 <- quantile(ref$RR, 0.99, na.rm = TRUE, type = 6)
+  
+  Rper <- function(p, name) {
+    data_estacion %>%
+      group_by(year) %>%
+      summarise(
+        !!name := if (all(is.na(RR))) NA_real_
+        else sum(RR[RR > p], na.rm = TRUE),
+        .groups = "drop"
+      )
+  }
+  
+  R95pTOT <- Rper(p95, "R95pTOT")
+  R99pTOT <- Rper(p99, "R99pTOT")
+  
+  # ---------------------------
+  # MATRIZ FINAL
+  # ---------------------------
+  metricas <- years_tbl %>%
+    left_join(n_wet_dry, by = "year") %>%
+    left_join(Rx1day, by = "year") %>%
+    left_join(Rx5day, by = "year") %>%
+    left_join(SDII, by = "year") %>%
+    left_join(R10mm, by = "year") %>%
+    left_join(R20mm, by = "year") %>%
+    left_join(CDD, by = "year") %>%
+    left_join(CWD, by = "year") %>%
+    left_join(PRCPTOT, by = "year") %>%
+    left_join(R95pTOT, by = "year") %>%
+    left_join(R99pTOT, by = "year")
+  
+  return(metricas)
+}
+
+data_estacion <- get_data_estacion(
+  nombre_archivo ,
+  nombre_estacion
+)
+
+metricas_data <- calcular_metricas_anuales(data_estacion)
+
+
+#graficos
+
+theme_metrica <- theme_minimal(base_size = 12) +
+  theme(
+    plot.title = element_text(face = "bold", size = 14),
+    plot.subtitle = element_text(size = 11, colour = "grey30"),
+    axis.title = element_text(size = 11),
+    axis.text = element_text(size = 10),
+    panel.grid.minor = element_blank(),
+    legend.position = "none"
+  )
+
+plot_metrica_ts <- function(data, var, subtitulo, ylab) {
+  ggplot(
+    data,
+    aes(x = year, y = .data[[var]])
+  ) +
+    geom_line(linewidth = 0.9) +
+    geom_point(size = 2) +
+    labs(
+      title = nombre_estacion,
+      subtitle = subtitulo,
+      x = "Año hidrológico",
+      y = ylab
+    ) +
+    theme_metrica
+}
+
+p_PRCPTOT <- plot_metrica_ts(
+  metricas_data,
+  "PRCPTOT",
+  "Precipitación total anual en días húmedos",
+  "PRCPTOT (mm/año)"
+)
+
+p_SDII <- plot_metrica_ts(
+  metricas_data,
+  "SDII",
+  "Índice de intensidad diaria",
+  "SDII (mm/día húmedo)"
+)
+
+p_R95 <- plot_metrica_ts(
+  metricas_data,
+  "R95pTOT",
+  "Precipitación anual sobre el percentil 95",
+  "R95pTOT (mm)"
+)
+
+p_R99 <- plot_metrica_ts(
+  metricas_data,
+  "R99pTOT",
+  "Precipitación anual sobre el percentil 99",
+  "R99pTOT (mm)"
+)
+
+
+(p_PRCPTOT / p_SDII / p_R95) +
+  plot_annotation(
+    title = nombre_estacion,
+    subtitle = "Evolución temporal de cantidad, intensidad y extremos de precipitación"
+  )
+
+ggplot(
+  metricas_data,
+  aes(R95pTOT, R99pTOT)
+) +
+  geom_point(alpha = 0.7, na.rm = TRUE) +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed") +
+  coord_equal() +
+  theme_metrica +
+  labs(
+    title = nombre_estacion,
+    subtitle = "Comparación entre extremos moderados y severos",
+    x = "R95pTOT (mm)",
+    y = "R99pTOT (mm)"
+  )
+
+labels_metricas <- c(
+  PRCPTOT = "PRCPTOT (mm/año)",
+  SDII    = "SDII (mm/día)",
+  Rx1day  = "Rx1día (mm)",
+  Rx5day  = "Rx5día (mm)",
+  R95pTOT = "R95pTOT (mm)",
+  R99pTOT = "R99pTOT (mm)"
+)
+
+
+metricas_data_long <- metricas_data %>%
+  select(PRCPTOT, SDII, Rx1day, Rx5day, R95pTOT, R99pTOT) %>%
+  pivot_longer(everything(), names_to = "metrica", values_to = "valor")
+
+ggplot(
+  metricas_data_long,
+  aes(metrica, valor)
+) +
+  geom_boxplot(outlier.shape = NA, fill = "grey85") +
+  geom_jitter(width = 0.15, alpha = 0.5, size = 1) +
+  coord_flip() +
+  scale_x_discrete(labels = labels_metricas) +
+  theme_metrica +
+  labs(
+    title = nombre_estacion,
+    subtitle = "Distribución interanual de métricas de precipitación",
+    x = NULL,
+    y = "Valor"
+  )
 
 
 
+plot_comp <- function(data, x, y, xlab, ylab, subtitulo = NULL) {
+  ggplot(data, aes({{x}}, {{y}})) +
+    geom_point(alpha = 0.7, na.rm = TRUE) +
+    geom_smooth(method = "lm", se = FALSE, linewidth = 0.8) +
+    theme_metrica +
+    labs(
+      title = nombre_estacion,
+      subtitle = subtitulo,
+      x = xlab,
+      y = ylab
+    )
+}
 
-```{r, echo = F}
-print(1)
+
+p_line <- plot_metrica_ts(
+  metricas_data,
+  "PRCPTOT",
+  "Cantidad anual de precipitación",
+  "PRCPTOT (mm/año)"
+)
+
+p_scatter <- plot_comp(
+  metricas_data,
+  PRCPTOT, SDII,
+  "PRCPTOT (mm/año)",
+  "SDII (mm/día)",
+  "Cantidad vs intensidad"
+)
+
+p_box <- ggplot(metricas_data, aes(x = "", y = Rx5day)) +
+  geom_boxplot(fill = "grey85") +
+  geom_jitter(width = 0.08, alpha = 0.6) +
+  theme_metrica +
+  labs(
+    title = nombre_estacion,
+    subtitle = "Variabilidad interanual de extremos",
+    x = NULL,
+    y = "Rx5día (mm)"
+  )
+
+(p_line | p_scatter | p_box) +
+  plot_annotation(
+    title = nombre_estacion,
+    subtitle = "Cantidad, intensidad y extremos de la precipitación"
+  )
 ```
 
