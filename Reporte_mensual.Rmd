@@ -1,17 +1,82 @@
-# =========================================================
-# LIBRERÍAS
-# =========================================================
+---
+title: "`r htmltools::HTML('<center><h1>Reporte de precipitación mensual <center></h1>')`"
+author: "`r htmltools::HTML('<center><h4>Amphos21 Chile<center></h4>')`"
+lang: "esp"
+output:
+  html_document:
+    toc: true
+    # theme: united
+---
+<style>
+body {
+text-align: justify}
+</style>
+```{css, echo=FALSE}
+.rchunks_in {
+  background-color: white;
+  border: 0.5px solid black;
+  font-weight: bold;
+}
+```
+```{css, echo=FALSE}
+.rchunks_out {
+  background-color: white;
+  border: 0.5px dashed black;
+  font-weight: bold;
+}
+```
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE,
+                      comment = "",
+                      message = F,
+                      warning = F,
+                      fig.align = "center",
+                      class.source = "rchunks_in",
+                      class.output = "rchunks_out",
+                      fig.width = 12,
+                      fig.height = 7)
+```
+
+```{r, include=FALSE}
 suppressPackageStartupMessages({
   library(openxlsx)
   library(dplyr)
   library(lubridate)
   library(tidyr)
+  library(zoo)
   library(ggplot2)
+  library(patchwork)
+  library(knitr)
 })
+```
+```{r, include=FALSE}
+nombre_archivo <- "data/RegistrosDiarios_pr_2026-01-05.xlsx"
+nombre_estacion <- "COPIAPO"
 
-# =========================================================
-# PARÁMETROS
-# =========================================================
+get_info_estacion <- function(nombre_archivo, nombre_estacion) {
+  
+  dt_estaciones <- read.xlsx(
+    nombre_archivo,
+    sheet = 1,
+    detectDates = TRUE
+  )
+  
+  info_estacion <- dt_estaciones %>%
+    filter(name == nombre_estacion)
+  
+  if (nrow(info_estacion) == 0) {
+    stop("La estación no existe en el archivo.")
+  }
+  
+  return(info_estacion)
+}
+
+# Ejecutar
+info_estacion <- get_info_estacion(nombre_archivo, nombre_estacion)
+
+
+```
+```{r, include=FALSE}
 nombre_archivo  <- "data/RegistrosDiarios_pr_2026-01-05.xlsx"
 nombre_estacion <- "COPIAPO"
 
@@ -43,7 +108,7 @@ get_data_daily <- function(nombre_archivo, nombre_estacion) {
 # =========================================================
 # 2. MATRIZ MENSUAL (AÑO HIDROLÓGICO)
 # =========================================================
-get_monthly_matrix <- function(data_daily, umbral_cobertura = 20) {
+get_monthly_matrix <- function(data_daily, umbral_cobertura = 0.8) {
   
   meses <- c("Abr","May","Jun","Jul","Ago","Sep",
              "Oct","Nov","Dic","Ene","Feb","Mar")
@@ -57,12 +122,10 @@ get_monthly_matrix <- function(data_daily, umbral_cobertura = 20) {
     group_by(year_h, month_h) %>%
     summarise(
       RR_sum = sum(RR, na.rm = TRUE),
-      #dias   = n(),
+      dias   = n(),
       validos = sum(!is.na(RR)),
-      #cobertura = validos / dias,
-      RR_month = ifelse(validos >= umbral_cobertura, RR_sum, NA_real_),
-      #RR_month = ifelse(cobertura >= umbral_cobertura, RR_sum, NA_real_),
-      
+      cobertura = validos / dias,
+      RR_month = ifelse(cobertura >= umbral_cobertura, RR_sum, NA_real_),
       .groups = "drop"
     ) %>%
     mutate(Mes = factor(month_h, levels = 1:12, labels = meses)) %>%
@@ -137,7 +200,106 @@ data_daily     <- get_data_daily(nombre_archivo, nombre_estacion)
 matriz_mensual <- get_monthly_matrix(data_daily)
 matriz_pexcc   <- build_matriz_pexcc(matriz_mensual)
 curvas_pexcc   <- calc_curvas_pexcc(matriz_pexcc, probs_exc)
+```
 
+
+
+# 1. Descripción de la estación
+
+La estación pluviométrica `r nombre_estacion`, administrada por `r info_estacion$owner`, se localiza en la Región `r info_estacion$nombre_region`, a una latitud de `r round(info_estacion$lat,2)`° y longitud `r  round(info_estacion$lon,2)`°, con una elevación aproximada de `r info_estacion$elev` m s.n.m.. La estación registra la variable precipitación diaria (mm/día) y cuenta con una serie de datos que se extiende desde el `r info_estacion$first_record`  hasta el `r info_estacion$last_record` , totalizando `r as.character(info_estacion$total_days)` días en el período de análisis. De estos,  `r as.character(info_estacion$records_days)` días presentan registros válidos, lo que corresponde a una cobertura del  `r round(info_estacion$records_pctg,2)`%, sin detección de valores atípicos.
+
+#2. Descripción de metricas 
+
+## 1. Curva de Variación Estacional (CVE)
+
+La **Curva de Variación Estacional (CVE)** representa la distribución intra–anual de la **precipitación mensual acumulada** a lo largo del año hidrológico, permitiendo identificar el régimen estacional de las lluvias y los períodos húmedos y secos predominantes.
+
+Sea $RR_{i,j}$ la precipitación mensual acumulada del mes $i$ en el año hidrológico $j$, con $i = 1, \dots, 12$. La precipitación media mensual acumulada se define como:
+
+$$
+\overline{RR}_i = \frac{1}{N} \sum_{j=1}^{N} RR_{i,j}
+$$
+
+donde $N$ es el número de años hidrológicos con información válida.
+
+La CVE se obtiene graficando $\overline{RR}_i$ en función del mes hidrológico, ordenado desde abril hasta marzo. Esta curva permite:
+
+- Identificar la concentración temporal de la precipitación.
+- Reconocer el mes o período de mayor aporte pluviométrico.
+- Comparar el comportamiento estacional entre estaciones o cuencas.
+
+---
+
+## 2. Estadísticos Mensuales de la Precipitación (Media, Desviación Estándar y Coeficiente de Variación)
+
+Con el objetivo de caracterizar la variabilidad interanual de la precipitación mensual, se calculan los principales estadísticos descriptivos para cada mes hidrológico.
+
+La **media mensual** se define como:
+
+$$
+\overline{RR}_i = \frac{1}{N} \sum_{j=1}^{N} RR_{i,j}
+$$
+
+La **desviación estándar mensual**, que cuantifica la dispersión de los valores respecto a la media, se calcula como:
+
+$$
+\sigma_i = \sqrt{\frac{1}{N-1} \sum_{j=1}^{N} \left(RR_{i,j} - \overline{RR}_i\right)^2}
+$$
+
+Finalmente, el **coeficiente de variación (CV)**, utilizado como una medida adimensional de la variabilidad relativa, se define como:
+
+$$
+CV_i = \frac{\sigma_i}{\overline{RR}_i}
+$$
+
+Valores elevados de $CV_i$ indican una alta variabilidad interanual de la precipitación mensual, característica común en climas áridos y semiáridos.
+
+---
+
+## 3. Índice de Estacionalidad de la Precipitación (Índice de Markham)
+
+El **Índice de Estacionalidad de Markham (SI)** cuantifica el grado de concentración temporal de la precipitación anual y permite, adicionalmente, identificar el momento del año en que dicha precipitación se concentra. A diferencia de otros índices de estacionalidad, este método representa la precipitación mensual como vectores angulares distribuidos uniformemente a lo largo del ciclo anual.
+
+Sea $P_m$ la precipitación total del mes $m$ en un año hidrológico, con $m = 1, \dots, 12$, y sea $P_{anual}$ la precipitación total anual, definida como:
+
+$$
+P_{anual} = \sum_{m=1}^{12} P_m
+$$
+
+A cada mes se le asigna un ángulo $\theta_m$ en el círculo anual, definido como:
+
+$$
+\theta_m = \frac{2\pi}{12}(m - 1)
+$$
+
+La precipitación mensual se representa como un vector de magnitud $P_m$ y dirección $\theta_m$. Las componentes del vector resultante anual se calculan como:
+
+$$
+X = \sum_{m=1}^{12} P_m \cos(\theta_m)
+$$
+
+$$
+Y = \sum_{m=1}^{12} P_m \sin(\theta_m)
+$$
+
+El **Índice de Estacionalidad de Markham** se define como la magnitud del vector resultante normalizada por la precipitación anual:
+
+$$
+SI = \frac{\sqrt{X^2 + Y^2}}{P_{anual}}
+$$
+
+Este índice es adimensional y toma valores comprendidos entre 0 y 1, donde valores cercanos a 0 indican una distribución uniforme de la precipitación a lo largo del año, mientras que valores cercanos a 1 reflejan una fuerte concentración de la precipitación en un período reducido del año.
+
+Adicionalmente, la **fase estacional** o mes dominante de la precipitación se obtiene a partir del ángulo del vector resultante:
+
+$$
+\phi = \arctan\left(\frac{Y}{X}\right)
+$$
+
+La fase $\phi$ permite identificar el mes o estación del año en la cual se concentra el mayor aporte pluviométrico.
+
+# 3.Resultados
+```{r, echo = F}
 # =========================================================
 # 6. GRÁFICO
 # =========================================================
@@ -309,24 +471,5 @@ ggplot(stats_mensuales,
     y = "Precipitación mensual media (mm)"
   ) +
   theme_minimal()
+```
 
-# =========================================================
-# 7. GUARDAR RESULTADOS
-# =========================================================
-dir.create("resultados", showWarnings = FALSE)
-
-write.csv(matriz_mensual,
-          "resultados/matriz_mensual.csv",
-          row.names = FALSE)
-
-write.csv(matriz_pexcc,
-          "resultados/matriz_pexcc.csv",
-          row.names = FALSE)
-
-write.csv(curvas_pexcc,
-          "resultados/curvas_excedencia.csv",
-          row.names = FALSE)
-
-write.csv(data_daily,
-          "resultados/data_daily.csv",
-          row.names = FALSE)

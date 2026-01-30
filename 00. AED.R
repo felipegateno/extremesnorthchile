@@ -354,3 +354,53 @@ p_box <- ggplot(metricas_data, aes(x = "", y = Rx5day)) +
     title = nombre_estacion,
     subtitle = "Cantidad, intensidad y extremos de la precipitación"
   )
+
+
+
+##
+p_Rnn <- ggplot(metricas_data, aes(x = year)) +
+  
+  geom_line(
+    aes(y = R10mm, color = "R10mm"),
+    linewidth = 1
+  ) +
+  geom_point(
+    aes(y = R10mm, color = "R10mm"),
+    size = 2
+  ) +
+  
+  geom_line(
+    aes(y = R20mm, color = "R20mm"),
+    linewidth = 1
+  ) +
+  geom_point(
+    aes(y = R20mm, color = "R20mm"),
+    size = 2
+  ) +
+  
+  scale_color_manual(
+    name = "Métrica",
+    values = c(
+      "R10mm" = "#1f78b4",
+      "R20mm" = "#b2182b"
+    ),
+    labels = c(
+      "R10mm" = "Días con precipitación ≥ 10 mm",
+      "R20mm" = "Días con precipitación ≥ 20 mm"
+    )
+  ) +
+  
+  labs(
+    title = nombre_estacion,
+    subtitle = "Frecuencia anual de eventos de precipitación moderada y severa",
+    x = "Año hidrológico",
+    y = "Número de días (días/año)"
+  ) +
+  
+  theme_metrica +
+  theme(
+    legend.position = "bottom"
+  )
+
+# 👇 ESTA LÍNEA ES LA CLAVE
+p_Rnn
